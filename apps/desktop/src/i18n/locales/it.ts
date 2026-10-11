@@ -2022,6 +2022,8 @@ export default withEnglishFallback({
     rows: "{count} righe",
     totalRows: "Totale {count} righe",
     loadedRows: "{count} righe caricate",
+    copyPartialRowsHintWithTotal: "Copiate le {loaded} righe caricate ({total} righe in totale: il risultato non è completamente caricato)",
+    copyPartialRowsHint: "Copiate le {loaded} righe caricate (il risultato non è completamente caricato)",
     totalRowCount: "({count} in totale)",
     totalRowCountWithAction: "({button}{count} in totale)",
     totalRowCountAtLeast: "(almeno {count} in totale)",
