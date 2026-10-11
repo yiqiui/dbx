@@ -25,6 +25,7 @@ import {
   localTableSearchParentTypes,
 } from "@/lib/sidebar/sidebarSearchTree";
 import { createSidebarLabelMatcher } from "@/lib/sidebar/sidebarSearch";
+import { firstSidebarSearchMatchDataNode, hasActiveSidebarSearch } from "@/lib/sidebar/sidebarSearchEnter";
 import { collectSidebarRegexIndexScopes, resolveSidebarRemoteSearchQuery, resolveSidebarSearchDispatchMode, shouldRestoreTrackedSidebarSearchTargetsInRegexMode } from "@/lib/sidebar/sidebarRegexSearchIndex";
 import { needsSidebarObjectGroupDiscovery } from "@/lib/sidebar/sidebarSearchDiscovery";
 import { isSidebarSearchPrunedDatabaseNode, resolveSidebarSearchDatabaseScope } from "@/lib/sidebar/sidebarSearchDatabaseScope";
@@ -2432,6 +2433,14 @@ function focusSearch(target: Element | null = null): boolean {
 }
 
 function onSearchKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter" && !event.isComposing && !event.defaultPrevented) {
+    const node = firstSidebarSearchMatchDataNode(visibleNodes.value, hasActiveSidebarSearch(searchQuery.value, store.sidebarTableSearchQueries));
+    if (node) {
+      event.preventDefault();
+      sidebarTreeRuntimeHostRef.value?.handleRowClick(node, 1);
+    }
+    return;
+  }
   if (!isCancelSearchShortcut(event)) return;
   event.preventDefault();
   searchQuery.value = "";
