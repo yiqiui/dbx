@@ -3479,6 +3479,10 @@ let infiniteScrollLoadAllPending = false;
 // runs out of rows, so a table larger than the cap does not silently stop halfway (#10752).
 let loadAllRowsLoopActive = false;
 const loadAllRowsActive = ref(false);
+// Set when "load all" is requested from a page past the first row. The whole
+// result has to restart from server offset 0 before the run begins so the grid
+// holds rows 1..N instead of appending onto a mid-result page (#12182).
+let loadAllRestartFromResultStart = false;
 // Tracks whether the current loading cycle was triggered by a refresh/rollback
 // (as opposed to a normal paginate). Used to decide whether to auto-redirect
 // when the current page no longer exists after data was deleted.
@@ -3983,12 +3987,7 @@ function nextLoadAllSegment() {
   return dataGridLoadAllSegment(props.result.rows.length, targetMaxRows, canFetchMore);
 }
 
-function loadAllRowsAndGoToLast() {
-  if (!props.loadAllRowsEnabled || gridSurfaceBusy.value || infiniteScrollLoading.value || props.result.rows.length === 0) return;
-  // search_after cursor paging fetches page by page; a single giant append
-  // against those cursors is untested, so ES/Easysearch grids keep the
-  // reveal-only shortcut instead of loading everything.
-  if (isResultsContext.value && (resolvedDatabaseType.value === "elasticsearch" || resolvedDatabaseType.value === "easysearch")) return;
+function beginLoadAllRowsFromResultStart() {
   const segment = nextLoadAllSegment();
   if (!segment) {
     loadAllRowsActive.value = true;
@@ -4004,6 +4003,28 @@ function loadAllRowsAndGoToLast() {
     return;
   }
   startLoadAllRows(segment);
+}
+
+function loadAllRowsAndGoToLast() {
+  if (!props.loadAllRowsEnabled || gridSurfaceBusy.value || infiniteScrollLoading.value || props.result.rows.length === 0) return;
+  // search_after cursor paging fetches page by page; a single giant append
+  // against those cursors is untested, so ES/Easysearch grids keep the
+  // reveal-only shortcut instead of loading everything.
+  if (isResultsContext.value && (resolvedDatabaseType.value === "elasticsearch" || resolvedDatabaseType.value === "easysearch")) return;
+  // Triggered from a page past the first row: appending onto this page would
+  // never fetch rows 1..offset, so reload the result from offset 0 first and
+  // start the run once that replacement lands (see the result watcher).
+  if (!infiniteScrollEnabled.value && !allRowsLoaded.value && typeof props.pageOffset === "number" && props.pageOffset > 0) {
+    loadAllRestartFromResultStart = true;
+    loadAllRowsActive.value = true;
+    currentPage.value = 1;
+    lastInfiniteScrollPage = 0;
+    infiniteScrollAllLoaded = false;
+    resetGridVerticalScroll(true);
+    emit("paginate", 0, pageSize.value, currentWhereInput(), effectiveOrderBy());
+    return;
+  }
+  beginLoadAllRowsFromResultStart();
 }
 
 function startLoadAllRows(segment: { offset: number; limit: number }) {
@@ -4089,6 +4110,7 @@ function changePageSize(size: number) {
   infiniteScrollAllLoaded = false;
   loadAllRowsActive.value = false;
   loadAllRowsLoopActive = false;
+  loadAllRestartFromResultStart = false;
   infiniteScrollPositions = new WeakMap();
   resetGridVerticalScroll(true);
   emit("paginate", 0, normalizedSize, currentWhereInput(), effectiveOrderBy());
@@ -5024,6 +5046,7 @@ function resetInfiniteScrollState() {
   infiniteScrollLoadAllPending = false;
   loadAllRowsActive.value = false;
   loadAllRowsLoopActive = false;
+  loadAllRestartFromResultStart = false;
   infiniteScrollPositions = new WeakMap();
   resetGridVerticalScroll(true);
 }
@@ -11665,6 +11688,12 @@ watch(
     // page jump swaps in a fresh first page whose remaining segments must be
     // re-derived instead of being silently skipped.
     infiniteScrollAllLoaded = false;
+    // A "load all" that started past the first row reloads from offset 0 first;
+    // now that the first page is in place, run the rest of the load from there.
+    if (loadAllRestartFromResultStart) {
+      loadAllRestartFromResultStart = false;
+      nextTick(beginLoadAllRowsFromResultStart);
+    }
     if (getResetScrollAfterResult()) {
       clearResetScrollAfterResult();
       resetGridVerticalScroll();
