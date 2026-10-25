@@ -100,7 +100,7 @@ async function loadMessages() {
       if (isKafkaTimestampMode.value) {
         const parsedTime = Date.parse(String(kafkaStartTimestamp.value));
         if (!Number.isFinite(parsedTime)) throw new Error(t("mqMessages.timestampRequired"));
-        options.timestamp = parsedTime;
+        options.timestampMs = parsedTime;
       }
     } else {
       if (partitionText !== "") {

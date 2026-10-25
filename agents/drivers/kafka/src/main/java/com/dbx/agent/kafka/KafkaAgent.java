@@ -1627,8 +1627,8 @@ public final class KafkaAgent {
         int count = validatedPeekCount(intOrDefault(params, "count", 10));
         PeekStartPosition startPosition = peekStartPosition(params);
         boolean explicitStartPosition = stringOrNull(params, "startPosition") != null;
-        Long startTimestamp = longOrNull(params, "timestamp");
-        validatePeekRequest(startPosition, explicitStartPosition, partition, offset, startTimestamp);
+        Long startTimestampMs = longOrNull(params, "timestampMs");
+        validatePeekRequest(startPosition, explicitStartPosition, partition, offset, startTimestampMs);
         boolean legacyOffsetRequest = !explicitStartPosition && offset != null;
 
         JsonObject conn = activeConnection;
@@ -1655,7 +1655,7 @@ public final class KafkaAgent {
             if (startPosition == PeekStartPosition.TIMESTAMP) {
                 Map<TopicPartition, Long> byTime = new LinkedHashMap<>();
                 for (TopicPartition tp : candidatePartitions) {
-                    byTime.put(tp, startTimestamp);
+                    byTime.put(tp, startTimestampMs);
                 }
                 timestampOffsets = peekTimestampOffsets(consumer.offsetsForTimes(byTime, requestTimeout));
             }
@@ -2170,7 +2170,7 @@ public final class KafkaAgent {
     }
 
     /**
-     * First offset whose batch timestamp is &gt;= {@code timestamp}, per partition. Kafka
+     * First offset whose batch timestamp is &gt;= {@code timestampMs}, per partition. Kafka
      * answers null for a partition whose newest record is older than the requested time;
      * that partition is simply left out of the read rather than silently falling back to
      * its tail, so a time window never shows data from outside itself.
@@ -2192,17 +2192,17 @@ public final class KafkaAgent {
         boolean explicitStartPosition,
         Integer partition,
         Long offset,
-        Long timestamp
+        Long timestampMs
     ) {
-        if (startPosition != PeekStartPosition.TIMESTAMP && timestamp != null) {
-            throw new IllegalArgumentException("timestamp is only supported when startPosition is timestamp");
+        if (startPosition != PeekStartPosition.TIMESTAMP && timestampMs != null) {
+            throw new IllegalArgumentException("timestampMs is only supported when startPosition is timestamp");
         }
         if (startPosition == PeekStartPosition.TIMESTAMP) {
-            if (timestamp == null) {
-                throw new IllegalArgumentException("timestamp is required when startPosition is timestamp");
+            if (timestampMs == null) {
+                throw new IllegalArgumentException("timestampMs is required when startPosition is timestamp");
             }
-            if (timestamp < 0) {
-                throw new IllegalArgumentException("timestamp must be a non-negative epoch millisecond value");
+            if (timestampMs < 0) {
+                throw new IllegalArgumentException("timestampMs must be a non-negative epoch millisecond value");
             }
         }
         if (partition != null && partition < 0) {

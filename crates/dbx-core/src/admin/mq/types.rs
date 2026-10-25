@@ -867,7 +867,7 @@ pub enum PeekStartPosition {
 /// `start_position: Offset` requires a non-negative offset. When no partition
 /// is supplied, Kafka reads forward from that offset in every topic partition.
 /// `start_position: Timestamp` requires a non-negative epoch-millisecond
-/// `timestamp` and reads from the first record at or after it.
+/// `timestampMs` and reads from the first record at or after it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeekMessagesOptions {
@@ -882,7 +882,7 @@ pub struct PeekMessagesOptions {
     /// Epoch milliseconds; used only with `start_position: Timestamp`, where
     /// the agent resolves the first offset at or after this time per partition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<i64>,
+    pub timestamp_ms: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1604,26 +1604,26 @@ mod tests {
     #[test]
     fn peek_options_round_trip_timestamp_start_position() {
         let timestamp: super::PeekMessagesOptions =
-            serde_json::from_str(r#"{"startPosition":"timestamp","timestamp":1700000000000}"#)
+            serde_json::from_str(r#"{"startPosition":"timestamp","timestampMs":1700000000000}"#)
                 .expect("timestamp peek options");
         assert_eq!(timestamp.start_position, Some(super::PeekStartPosition::Timestamp));
-        assert_eq!(timestamp.timestamp, Some(1_700_000_000_000));
+        assert_eq!(timestamp.timestamp_ms, Some(1_700_000_000_000));
         let json = serde_json::to_value(&timestamp).expect("serialize timestamp peek options");
         assert_eq!(json.get("startPosition").and_then(|value| value.as_str()), Some("timestamp"));
-        assert_eq!(json.get("timestamp").and_then(|value| value.as_i64()), Some(1_700_000_000_000));
+        assert_eq!(json.get("timestampMs").and_then(|value| value.as_i64()), Some(1_700_000_000_000));
 
         // Every other start position still parses and carries no timestamp.
         let earliest: super::PeekMessagesOptions =
             serde_json::from_str(r#"{"startPosition":"earliest"}"#).expect("earliest peek options");
         assert_eq!(earliest.start_position, Some(super::PeekStartPosition::Earliest));
-        assert_eq!(earliest.timestamp, None);
+        assert_eq!(earliest.timestamp_ms, None);
 
         // Requests without a timestamp keep omitting the field, and unknown
         // start positions still fail here instead of reaching the agent.
         let legacy: super::PeekMessagesOptions =
             serde_json::from_str(r#"{"partition":1}"#).expect("legacy peek options");
         let json = serde_json::to_value(&legacy).expect("serialize legacy peek options");
-        assert!(json.get("timestamp").is_none());
+        assert!(json.get("timestampMs").is_none());
         assert!(serde_json::from_str::<super::PeekMessagesOptions>(r#"{"startPosition":"whenever"}"#).is_err());
     }
 

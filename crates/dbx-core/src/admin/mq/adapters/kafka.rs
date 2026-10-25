@@ -683,8 +683,8 @@ fn peek_messages_params(
     if let Some(offset) = options.offset {
         params["offset"] = serde_json::json!(offset);
     }
-    if let Some(timestamp) = options.timestamp {
-        params["timestamp"] = serde_json::json!(timestamp);
+    if let Some(timestamp_ms) = options.timestamp_ms {
+        params["timestampMs"] = serde_json::json!(timestamp_ms);
     }
     params
 }
@@ -898,7 +898,7 @@ mod tests {
                 start_position: Some(PeekStartPosition::Offset),
                 partition: Some(2),
                 offset: Some(17),
-                timestamp: None,
+                timestamp_ms: None,
             },
         );
 
@@ -980,7 +980,7 @@ mod tests {
             &cfg,
             &topic_ref(),
             20,
-            PeekMessagesOptions { start_position: None, partition: None, offset: Some(17), timestamp: None },
+            PeekMessagesOptions { start_position: None, partition: None, offset: Some(17), timestamp_ms: None },
         );
 
         assert!(params.get("startPosition").is_none());
